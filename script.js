@@ -118,21 +118,20 @@ function renderDeck() {
       <div class="card-hint">↓ 아래로 당겨 담기</div>
     `;
 
-    // 맨 위 카드에만 스와이프/드래그 이벤트 부착
+    // 맨 위 카드에만 드래그 이벤트 부착
     if (i === 0) attachTouchEvents(card, item);
     cardDeck.appendChild(card);
   }
 }
 
-/* --- 터치/마우스 이벤트 매핑 (단 1개로 통합 정리) --- */
+/* --- 터치/마우스 이벤트 (아래로 당기기 전용) --- */
 function attachTouchEvents(card, emotionItem) {
-  let startX = 0, startY = 0, currentX = 0, currentY = 0, isDragging = false;
+  let startY = 0, currentY = 0, isDragging = false;
 
   const onStart = (e) => {
     if (isAnimating) return;
     isDragging = true;
     const touch = e.touches ? e.touches[0] : e;
-    startX = touch.clientX; 
     startY = touch.clientY;
     card.style.transition = 'none';
 
@@ -143,11 +142,12 @@ function attachTouchEvents(card, emotionItem) {
   const onMove = (e) => {
     if (!isDragging) return;
     const touch = e.touches ? e.touches[0] : e;
-    currentX = touch.clientX - startX; 
     currentY = touch.clientY - startY;
 
-    const rotateDeg = currentX * 0.08;
-    card.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotateDeg}deg)`;
+    // 아래로 끌 때만 카드가 이동 (위로는 안 올라감)
+    if (currentY > 0) {
+      card.style.transform = `translateY(${currentY}px)`;
+    }
   };
 
   const onEnd = () => {
@@ -157,22 +157,14 @@ function attachTouchEvents(card, emotionItem) {
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onEnd);
 
-    // 1. [아래로 당기기] -> 감정 담기
+    // [아래로 80px 이상 당기기] -> 감정 담기
     if (currentY > 80) {
       animateAndAdd(card, emotionItem);
     } 
-    // 2. [왼쪽으로 스와이프] -> 다음 카드 (카드는 왼쪽으로 슈욱)
-    else if (currentX < -60) {
-      animateAndNext(card);
-    } 
-    // 3. [오른쪽으로 스와이프] -> 이전 카드 (카드는 오른쪽으로 슈욱)
-    else if (currentX > 60) {
-      animateAndPrev(card);
-    } 
-    // 4. 복귀
+    // 미달 시 제자리 복귀
     else {
       card.style.transition = 'transform 0.2s ease-out';
-      card.style.transform = 'translate(0, 0) rotate(0deg)';
+      card.style.transform = 'translateY(0)';
     }
   };
 
@@ -182,47 +174,23 @@ function attachTouchEvents(card, emotionItem) {
   card.addEventListener('mousedown', onStart);
 }
 
-/* --- 애니메이션 및 카드 전환 로직 --- */
+/* --- 카드 전환 및 애니메이션 --- */
 
-// 다음 카드 (오른쪽 버튼 클릭 or 왼쪽 스와이프)
-function animateAndNext(targetCard = null) {
-  if (isAnimating || filteredData.length === 0) return;
-  isAnimating = true;
-
-  const topCard = targetCard || cardDeck.querySelector('.card');
-  if (topCard) {
-    topCard.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
-    topCard.style.transform = 'translateX(-500px) rotate(-20deg)';
-    topCard.style.opacity = '0';
-  }
-
-  setTimeout(() => {
-    currentIndex = (currentIndex + 1) % filteredData.length;
-    renderDeck();
-    isAnimating = false;
-  }, 180);
+// 다음 카드 (즉시 전환)
+function nextCard() {
+  if (filteredData.length === 0) return;
+  currentIndex = (currentIndex + 1) % filteredData.length;
+  renderDeck();
 }
 
-// 이전 카드 (왼쪽 버튼 클릭 or 오른쪽 스와이프)
-function animateAndPrev(targetCard = null) {
-  if (isAnimating || filteredData.length === 0) return;
-  isAnimating = true;
-
-  const topCard = targetCard || cardDeck.querySelector('.card');
-  if (topCard) {
-    topCard.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
-    topCard.style.transform = 'translateX(500px) rotate(20deg)';
-    topCard.style.opacity = '0';
-  }
-
-  setTimeout(() => {
-    currentIndex = (currentIndex - 1 + filteredData.length) % filteredData.length;
-    renderDeck();
-    isAnimating = false;
-  }, 180);
+// 이전 카드 (즉시 전환)
+function prevCard() {
+  if (filteredData.length === 0) return;
+  currentIndex = (currentIndex - 1 + filteredData.length) % filteredData.length;
+  renderDeck();
 }
 
-// 아래로 당겨 담기
+// 아래로 당겨 담기 애니메이션
 function animateAndAdd(targetCard, item) {
   if (isAnimating) return;
   isAnimating = true;
@@ -237,15 +205,6 @@ function animateAndAdd(targetCard, item) {
     addEmotion(item);
     isAnimating = false;
   }, 180);
-}
-
-/* --- 하단 버튼 연결 --- */
-function nextCard() {
-  animateAndNext();
-}
-
-function prevCard() {
-  animateAndPrev();
 }
 
 function selectCurrentCard() {

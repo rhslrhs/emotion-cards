@@ -84,7 +84,7 @@ function executeReset() {
     renderModalList();
   }
   
-  showToast('🔄 모든 감정이 초기화되고 카드가 섞였습니다');
+  showToast('🔄 모든 감정이 초기화되었습니다');
 }
 
 function renderDeck() {

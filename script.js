@@ -40,6 +40,7 @@ function updateFilteredData(category = getActiveCategory()) {
   if (category !== 'all') {
     list = list.filter(item => item.category === category);
   }
+  // 선택되지 않은 카드로 필터링
   filteredData = list.filter(item => !selectedEmotions.has(item.name));
 
   if (filteredData.length === 0) {
@@ -111,7 +112,6 @@ function renderDeck() {
     card.style.zIndex = 10 - i;
     card.style.opacity = 1 - i * 0.2;
 
-    // 번호 표시 (NO. XX)
     card.innerHTML = `
       <div class="card-top-row">
         <span class="card-id">NO. ${item.id}</span>
@@ -141,8 +141,6 @@ function attachTouchEvents(card, emotionItem) {
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onEnd);
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('touchend', onEnd);
   };
 
   const onMove = (e) => {
@@ -151,7 +149,6 @@ function attachTouchEvents(card, emotionItem) {
     currentY = touch.clientY - startY;
 
     if (currentY > 0) {
-      if (e.cancelable) e.preventDefault(); // 스크롤 동작 방지
       card.style.transform = `translateY(${currentY}px)`;
     }
   };
@@ -162,8 +159,6 @@ function attachTouchEvents(card, emotionItem) {
 
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onEnd);
-    window.removeEventListener('touchmove', onMove);
-    window.removeEventListener('touchend', onEnd);
 
     if (currentY > 80) {
       animateAndAdd(card, emotionItem);
@@ -174,6 +169,8 @@ function attachTouchEvents(card, emotionItem) {
   };
 
   card.addEventListener('touchstart', onStart, { passive: true });
+  card.addEventListener('touchmove', onMove, { passive: true });
+  card.addEventListener('touchend', onEnd);
   card.addEventListener('mousedown', onStart);
 }
 
@@ -188,7 +185,7 @@ function checkLoopProgress() {
   }
 }
 
-// 다음 카드 (오른쪽 버튼)
+// 다음 카드 (오른쪽 버튼 >> / +1)
 function nextCard() {
   if (filteredData.length === 0) return;
   currentIndex = (currentIndex + 1) % filteredData.length;
@@ -196,7 +193,7 @@ function nextCard() {
   renderDeck();
 }
 
-// 이전 카드 (왼쪽 버튼)
+// 이전 카드 (왼쪽 버튼 << / -1)
 function prevCard() {
   if (filteredData.length === 0) return;
   currentIndex = (currentIndex - 1 + filteredData.length) % filteredData.length;
@@ -227,13 +224,23 @@ function selectCurrentCard() {
   animateAndAdd(topCard, filteredData[currentIndex]);
 }
 
+// 💡 [핵심 수정] 셔플된 순서를 유지하며 선택된 카드만 제거
 function addEmotion(item) {
   if (!selectedEmotions.has(item.name)) {
     selectedEmotions.set(item.name, { ...item, note: "" });
     saveToStorage();
     updateSelectedUI();
-    
-    updateFilteredData();
+
+    // 원본 순서로 되돌리지 않고, 현재 셔플된 filteredData에서만 해당 카드 제거
+    filteredData = filteredData.filter(card => card.name !== item.name);
+
+    // 남아있는 카드 범위에 맞춰 인덱스 조정
+    if (filteredData.length > 0) {
+      currentIndex = currentIndex % filteredData.length;
+    } else {
+      currentIndex = 0;
+    }
+
     renderDeck();
   }
 }
@@ -243,6 +250,7 @@ function removeEmotion(name) {
   saveToStorage();
   updateSelectedUI();
   
+  // 감정이 해제된 경우 필터/셔플 재동기화
   updateFilteredData();
   renderDeck();
 
@@ -273,14 +281,19 @@ function updateSelectedUI() {
   selectedContainer.scrollLeft = selectedContainer.scrollWidth;
 }
 
-// 🔀 셔플 함수
+// 🔀 셔플 함수 (섞은 후 1번부터 번호 재할당 + 맨 첫 카드부터 시작)
 function shuffleCards() {
   for (let i = filteredData.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [filteredData[i], filteredData[j]] = [filteredData[j], filteredData[i]];
   }
+  
+  // 섞인 순서대로 번호(id)를 01부터 새로 매김
+  filteredData.forEach((item, idx) => {
+    item.id = String(idx + 1).padStart(2, '0');
+  });
 
-  currentIndex = 0;
+  currentIndex = 0;          // 항상 1번 카드 위치에서 시작
   viewedCount = 0;           // 한 바퀴 카운트 리셋
   hasToastedFullLoop = false; // 토스트 플래그 리셋
   
@@ -351,14 +364,7 @@ function copySelectedEmotions() {
   if (selectedEmotions.size === 0) return;
   const list = [];
   selectedEmotions.forEach((item, name) => list.push(`${item.emoji} ${name}`));
-  
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(list.join(', '))
-      .then(() => showToast('📋 클립보드에 복사되었습니다!'))
-      .catch(() => showToast('❌ 복사에 실패했습니다.'));
-  } else {
-    showToast('❌ 이 브라우저에서는 복사를 지원하지 않습니다.');
-  }
+  navigator.clipboard.writeText(list.join(', ')).then(() => showToast('📋 클립보드에 복사되었습니다!'));
 }
 
 function shareOnlyEmotions() {
@@ -367,13 +373,9 @@ function shareOnlyEmotions() {
   selectedEmotions.forEach((item, name) => list.push(`${item.emoji} ${name}`));
   const shareText = `[오늘 나의 마음]\n${list.join(', ')}`;
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(shareText)
-      .then(() => showToast('📋 감정이 클립보드에 복사되었습니다!'))
-      .catch(() => showToast('❌ 복사에 실패했습니다.'));
-  } else {
-    showToast('❌ 이 브라우저에서는 복사를 지원하지 않습니다.');
-  }
+  navigator.clipboard.writeText(shareText)
+    .then(() => showToast('📋 감정이 클립보드에 복사되었습니다!'))
+    .catch(() => showToast('❌ 복사에 실패했습니다.'));
 }
 
 function shareEmotionsWithNotes() {
@@ -385,16 +387,12 @@ function shareEmotionsWithNotes() {
   });
   const shareText = `[오늘 나의 마음 기록 💡]\n\n${list.join('\n')}`;
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(shareText)
-      .then(() => showToast('📋 내용이 클립보드에 복사되었습니다!'))
-      .catch(() => showToast('❌ 복사에 실패했습니다.'));
-  } else {
-    showToast('❌ 이 브라우저에서는 복사를 지원하지 않습니다.');
-  }
+  navigator.clipboard.writeText(shareText)
+    .then(() => showToast('📋 내용이 클립보드에 복사되었습니다!'))
+    .catch(() => showToast('❌ 복사에 실패했습니다.'));
 }
 
-// 앱 초기 실행
+// 초기화 실행
 loadFromStorage();
 updateFilteredData();
 shuffleCards();

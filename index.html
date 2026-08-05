@@ -287,7 +287,6 @@
       border-radius: 10px;
     }
 
-    /* 3. 최종확인 -> 확인 버튼 수정 */
     .confirm-btn {
       padding: 6px 14px;
       border-radius: 16px;
@@ -332,12 +331,15 @@
       background: #fff0f5;
     }
 
-    .selected-chip .remove-btn {
+    .remove-btn {
       background: none;
       border: none;
       color: #a4b0be;
       font-size: 0.9rem;
       cursor: pointer;
+      line-height: 1;
+      display: flex;
+      align-items: center;
     }
 
     .empty-msg {
@@ -347,15 +349,11 @@
       text-align: center;
     }
 
-    /* 1. 팝업 중앙 정렬 보장 */
+    /* 팝업 모달 */
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100vw;
-      height: 100vh;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100vw; height: 100vh;
       background: rgba(0, 0, 0, 0.5);
       display: flex;
       justify-content: center;
@@ -380,12 +378,13 @@
       padding: 24px 20px;
       text-align: center;
       box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-      margin: auto; /* 완전 중앙 배치 */
+      margin: auto;
     }
 
     .modal-title { font-size: 1.15rem; font-weight: 800; margin-bottom: 6px; }
     .modal-desc { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
 
+    /* 팝업 내 태그 스타일 및 삭제 버튼 */
     .modal-tags {
       display: flex;
       flex-wrap: wrap;
@@ -394,17 +393,33 @@
       margin-bottom: 20px;
       max-height: 180px;
       overflow-y: auto;
+      padding: 4px;
     }
 
     .modal-tag {
       background: #f1f2f6;
-      padding: 6px 12px;
+      padding: 6px 10px 6px 12px;
       border-radius: 16px;
       font-size: 0.85rem;
       font-weight: 700;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .modal-tag.is-extra {
+      border-color: #fd79a8;
+      background: #fff0f5;
+    }
+
+    .modal-tag .remove-btn {
+      font-size: 1rem;
+      color: #888;
+    }
+
+    .modal-tag .remove-btn:hover {
+      color: #e74c3c;
     }
 
     .modal-actions {
@@ -413,7 +428,6 @@
       gap: 8px;
     }
 
-    /* 2. 복사하기 버튼 디자인 */
     .copy-btn {
       width: 100%;
       padding: 12px;
@@ -431,8 +445,9 @@
       transition: background 0.2s ease;
     }
 
-    .copy-btn:active {
-      background: var(--primary-hover);
+    .copy-btn:disabled {
+      background: #b2bec3;
+      cursor: not-allowed;
     }
 
     .close-sub-btn {
@@ -454,7 +469,6 @@
     </div>
     <div class="header-tools">
       <button class="icon-btn" onclick="shuffleCards()">🔀 섞기</button>
-      <!-- 4. 번호 기본 OFF 적용 (checked 제거) -->
       <label class="toggle-label">
         <input type="checkbox" id="showNumberToggle" onchange="toggleCardNumber()">
         번호
@@ -485,7 +499,6 @@
       <div class="selected-title">
         선택한 감정 <span class="badge" id="selectedCount">0</span>
       </div>
-      <!-- 3. 최종 확인 -> 확인 으로 문구 수정 -->
       <button class="confirm-btn" id="confirmBtn" disabled onclick="openModal()">확인</button>
     </div>
 
@@ -494,7 +507,7 @@
     </div>
   </section>
 
-  <!-- 1. 중앙 정렬 팝업 모달 -->
+  <!-- 팝업 모달 -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal-content">
       <div class="modal-title">오늘 나의 마음 모음 💡</div>
@@ -502,7 +515,6 @@
       <div class="modal-tags" id="modalTags"></div>
       
       <div class="modal-actions">
-        <!-- 2. 복사하기 (+이모지) 버튼 -->
         <button class="copy-btn" id="copyBtn" onclick="copySelectedEmotions()">
           📋 복사하기 (+이모지)
         </button>
@@ -591,8 +603,6 @@
     const emotionsData = [...baseEmotions, ...extraEmotions];
     let filteredData = [...emotionsData];
     let currentIndex = 0;
-    
-    // 4. 번호 기본 OFF 설정
     let showNumber = false; 
     const selectedEmotions = new Map();
 
@@ -706,6 +716,11 @@
     function removeEmotion(name) {
       selectedEmotions.delete(name);
       updateSelectedUI();
+      
+      // 팝업이 활성화되어 있을 경우 팝업 UI도 함께 갱신
+      if (document.getElementById('modalOverlay').classList.contains('active')) {
+        renderModalTags();
+      }
     }
 
     function updateSelectedUI() {
@@ -760,16 +775,33 @@
       renderDeck();
     }
 
-    function openModal() {
+    // 팝업 내 태그 렌더링 함수
+    function renderModalTags() {
       const modalTags = document.getElementById('modalTags');
+      const copyBtn = document.getElementById('copyBtn');
       modalTags.innerHTML = '';
+
+      if (selectedEmotions.size === 0) {
+        modalTags.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">선택된 감정이 없습니다.</div>';
+        copyBtn.disabled = true;
+        return;
+      }
+
+      copyBtn.disabled = false;
       selectedEmotions.forEach((item, name) => {
-        const tag = document.createElement('span');
-        tag.className = 'modal-tag';
-        tag.textContent = `${item.emoji} ${name}`;
+        const tag = document.createElement('div');
+        tag.className = `modal-tag ${item.isExtra ? 'is-extra' : ''}`;
+        tag.innerHTML = `
+          <span>${item.emoji} ${name}</span>
+          <button class="remove-btn" onclick="removeEmotion('${name}')">&times;</button>
+        `;
         modalTags.appendChild(tag);
       });
-      
+    }
+
+    function openModal() {
+      renderModalTags();
+
       // 복사 버튼 상태 초기화
       const copyBtn = document.getElementById('copyBtn');
       copyBtn.innerHTML = '📋 복사하기 (+이모지)';
@@ -782,8 +814,9 @@
       document.getElementById('modalOverlay').classList.remove('active');
     }
 
-    // 2. 이모지와 감정명을 텍스트로 클립보드 복사
     function copySelectedEmotions() {
+      if (selectedEmotions.size === 0) return;
+
       const textList = [];
       selectedEmotions.forEach((item, name) => {
         textList.push(`${item.emoji} ${name}`);
@@ -800,11 +833,11 @@
           closeModal();
         }, 1000);
       }).catch(err => {
-        alert('복사에 실패했습니다. 수동으로 선택해 주세요.');
+        alert('복사에 실패했습니다.');
       });
     }
 
-    // 5. 페이지 진입 시 자동으로 카드 섞기 실행
+    // 페이지 진입 시 카드 무작위 섞기 실행
     shuffleCards();
   </script>
 </body>

@@ -30,6 +30,30 @@ function loadFromStorage() {
   }
 }
 
+/* --- 카테고리/선택 상태에 맞게 덱 데이터 동기화 --- */
+function updateFilteredData(category = getActiveCategory()) {
+  let list = emotionsData;
+  if (category !== 'all') {
+    list = list.filter(item => item.category === category);
+  }
+  // 💡 선택된 감정 목록(selectedEmotions)에 이미 있는 카드는 덱에서 제외!
+  filteredData = list.filter(item => !selectedEmotions.has(item.name));
+
+  if (currentIndex >= filteredData.length) {
+    currentIndex = Math.max(0, filteredData.length - 1);
+  }
+}
+
+function getActiveCategory() {
+  const activeChip = document.querySelector('.filter-chip.active');
+  if (!activeChip) return 'all';
+  const text = activeChip.textContent;
+  if (text.includes('긍정')) return 'positive';
+  if (text.includes('편안')) return 'calm';
+  if (text.includes('슬픔')) return 'negative';
+  return 'all';
+}
+
 /* --- 감정 초기화 --- */
 function resetEmotions() {
   if (selectedEmotions.size === 0) {
@@ -41,6 +65,8 @@ function resetEmotions() {
     selectedEmotions.clear();
     saveToStorage();
     updateSelectedUI();
+    updateFilteredData(); // 덱 목록 복원
+    renderDeck();
     if (document.getElementById('modalOverlay').classList.contains('active')) {
       renderModalList();
     }
@@ -51,7 +77,7 @@ function resetEmotions() {
 function renderDeck() {
   cardDeck.innerHTML = '';
   if (filteredData.length === 0) {
-    cardDeck.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#b2bec3;">카드가 없습니다</div>';
+    cardDeck.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#b2bec3;">선택 가능한 카드가 없습니다</div>';
     return;
   }
 
@@ -106,9 +132,10 @@ function attachTouchEvents(card, emotionItem) {
     card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
 
     if (currentY > 100) {
+      // 💡 아래로 당겨 담았을 때: 담은 후 덱에서 해당 카드 제거
       card.style.transform = 'translateY(300px)';
       card.style.opacity = '0';
-      setTimeout(() => { addEmotion(emotionItem); nextCard(); }, 200);
+      setTimeout(() => { addEmotion(emotionItem); }, 200);
     } else if (currentX < -100) {
       card.style.transform = 'translateX(-300px)';
       setTimeout(() => nextCard(), 200);
@@ -129,6 +156,7 @@ function attachTouchEvents(card, emotionItem) {
 }
 
 function nextCard() {
+  if (filteredData.length === 0) return;
   currentIndex = (currentIndex < filteredData.length - 1) ? currentIndex + 1 : 0;
   renderDeck();
 }
@@ -140,7 +168,6 @@ function prevCard() {
 function selectCurrentCard() {
   if (filteredData.length === 0) return;
   addEmotion(filteredData[currentIndex]);
-  nextCard();
 }
 
 function addEmotion(item) {
@@ -148,6 +175,10 @@ function addEmotion(item) {
     selectedEmotions.set(item.name, { ...item, note: "" });
     saveToStorage();
     updateSelectedUI();
+    
+    // 💡 선택했으므로 덱 데이터에서 제거하고 다시 렌더링
+    updateFilteredData();
+    renderDeck();
   }
 }
 
@@ -155,6 +186,11 @@ function removeEmotion(name) {
   selectedEmotions.delete(name);
   saveToStorage();
   updateSelectedUI();
+  
+  // 💡 선택 해제했으므로 덱에 다시 추가
+  updateFilteredData();
+  renderDeck();
+
   if (document.getElementById('modalOverlay').classList.contains('active')) {
     renderModalList();
   }
@@ -200,9 +236,7 @@ function filterEmotions(category, event) {
   document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
   if (event) event.target.classList.add('active');
 
-  if (category === 'all') filteredData = [...emotionsData];
-  else filteredData = emotionsData.filter(item => item.category === category);
-  
+  updateFilteredData(category);
   currentIndex = 0;
   renderDeck();
 }
@@ -263,17 +297,16 @@ function copySelectedEmotions() {
   navigator.clipboard.writeText(list.join(', ')).then(() => showToast('📋 클립보드에 복사되었습니다!'));
 }
 
+/* 💡 Win11 및 PC 환경을 위한 직관적 복사 공유 처리 */
 function shareOnlyEmotions() {
   if (selectedEmotions.size === 0) return;
   const list = [];
   selectedEmotions.forEach((item, name) => list.push(`${item.emoji} ${name}`));
   const shareText = `[오늘 나의 마음]\n${list.join(', ')}`;
 
-  if (navigator.share) {
-    navigator.share({ title: '오늘 나의 마음', text: shareText }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(shareText).then(() => showToast('📋 감정이 클립보드에 복사되었습니다!'));
-  }
+  navigator.clipboard.writeText(shareText)
+    .then(() => showToast('📋 감정이 클립보드에 복사되었습니다!'))
+    .catch(() => showToast('❌ 복사에 실패했습니다.'));
 }
 
 function shareEmotionsWithNotes() {
@@ -285,14 +318,13 @@ function shareEmotionsWithNotes() {
   });
   const shareText = `[오늘 나의 마음 기록 💡]\n\n${list.join('\n')}`;
 
-  if (navigator.share) {
-    navigator.share({ title: '오늘 나의 마음 기록', text: shareText }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(shareText).then(() => showToast('📋 내용이 클립보드에 복사되었습니다!'));
-  }
+  navigator.clipboard.writeText(shareText)
+    .then(() => showToast('📋 내용이 클립보드에 복사되었습니다!'))
+    .catch(() => showToast('❌ 복사에 실패했습니다.'));
 }
 
 // 앱 초기 실행
 loadFromStorage();
+updateFilteredData();
 shuffleCards();
 updateSelectedUI();

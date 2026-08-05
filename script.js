@@ -1,8 +1,11 @@
 // emotionsData.js 에서 가져온 데이터를 전역 변수로 초기화
 let filteredData = [...emotionsData];
 let currentIndex = 0;
-let showNumber = false;
 let isAnimating = false; // 애니메이션 중복 실행 방지 플래그
+
+// 한 바퀴 감지용 변수
+let viewedCount = 0;
+let hasToastedFullLoop = false;
 
 const STORAGE_KEY = 'my_selected_emotions_v1';
 const selectedEmotions = new Map();
@@ -108,9 +111,10 @@ function renderDeck() {
     card.style.zIndex = 10 - i;
     card.style.opacity = 1 - i * 0.2;
 
+    // 💡 번호는 항상 표시 (NO. XX)
     card.innerHTML = `
       <div class="card-top-row">
-        <span class="card-id ${showNumber ? '' : 'hidden'}">NO. ${item.id}</span>
+        <span class="card-id">NO. ${item.id}</span>
         <span></span>
       </div>
       <div class="card-emoji">${item.emoji}</div>
@@ -144,7 +148,6 @@ function attachTouchEvents(card, emotionItem) {
     const touch = e.touches ? e.touches[0] : e;
     currentY = touch.clientY - startY;
 
-    // 아래로 끌 때만 카드가 이동 (위로는 안 올라감)
     if (currentY > 0) {
       card.style.transform = `translateY(${currentY}px)`;
     }
@@ -157,12 +160,9 @@ function attachTouchEvents(card, emotionItem) {
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onEnd);
 
-    // [아래로 80px 이상 당기기] -> 감정 담기
     if (currentY > 80) {
       animateAndAdd(card, emotionItem);
-    } 
-    // 미달 시 제자리 복귀
-    else {
+    } else {
       card.style.transition = 'transform 0.2s ease-out';
       card.style.transform = 'translateY(0)';
     }
@@ -174,19 +174,30 @@ function attachTouchEvents(card, emotionItem) {
   card.addEventListener('mousedown', onStart);
 }
 
-/* --- 카드 전환 및 애니메이션 --- */
+/* --- 한 바퀴 넘김 감지 로직 --- */
+function checkLoopProgress() {
+  if (filteredData.length <= 1) return;
 
-// 다음 카드 (즉시 전환)
+  viewedCount++;
+  if (viewedCount >= filteredData.length && !hasToastedFullLoop) {
+    showToast('🎉 모든 카드를 한 바퀴 둘러보셨습니다!');
+    hasToastedFullLoop = true; // 중복 토스트 방지
+  }
+}
+
+// 다음 카드 (오른쪽 버튼)
 function nextCard() {
   if (filteredData.length === 0) return;
   currentIndex = (currentIndex + 1) % filteredData.length;
+  checkLoopProgress();
   renderDeck();
 }
 
-// 이전 카드 (즉시 전환)
+// 이전 카드 (왼쪽 버튼)
 function prevCard() {
   if (filteredData.length === 0) return;
   currentIndex = (currentIndex - 1 + filteredData.length) % filteredData.length;
+  checkLoopProgress();
   renderDeck();
 }
 
@@ -259,17 +270,22 @@ function updateSelectedUI() {
   selectedContainer.scrollLeft = selectedContainer.scrollWidth;
 }
 
+// 🔀 셔플 함수 (셔플 시 번호 재부여 + 한 바퀴 카운트 초기화)
 function shuffleCards() {
   for (let i = filteredData.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [filteredData[i], filteredData[j]] = [filteredData[j], filteredData[i]];
   }
-  currentIndex = 0;
-  renderDeck();
-}
+  
+  // 💡 섞인 순서대로 번호(id) 다시 1번부터 매기기
+  filteredData.forEach((item, idx) => {
+    item.id = String(idx + 1).padStart(2, '0');
+  });
 
-function toggleCardNumber() {
-  showNumber = document.getElementById('showNumberToggle').checked;
+  currentIndex = 0;
+  viewedCount = 0;           // 한 바퀴 카운트 리셋
+  hasToastedFullLoop = false; // 토스트 플래그 리셋
+  
   renderDeck();
 }
 
@@ -279,6 +295,8 @@ function filterEmotions(category, event) {
 
   updateFilteredData(category);
   currentIndex = 0;
+  viewedCount = 0;
+  hasToastedFullLoop = false;
   renderDeck();
 }
 

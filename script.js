@@ -2,6 +2,7 @@
 let filteredData = [...emotionsData];
 let currentIndex = 0;
 let showNumber = false;
+let isAnimating = false; // 애니메이션 중복 실행 방지 플래그
 
 const STORAGE_KEY = 'my_selected_emotions_v1';
 const selectedEmotions = new Map();
@@ -36,11 +37,12 @@ function updateFilteredData(category = getActiveCategory()) {
   if (category !== 'all') {
     list = list.filter(item => item.category === category);
   }
-  // 💡 선택된 감정 목록(selectedEmotions)에 이미 있는 카드는 덱에서 제외!
   filteredData = list.filter(item => !selectedEmotions.has(item.name));
 
-  if (currentIndex >= filteredData.length) {
-    currentIndex = Math.max(0, filteredData.length - 1);
+  if (filteredData.length === 0) {
+    currentIndex = 0;
+  } else if (currentIndex >= filteredData.length) {
+    currentIndex = filteredData.length - 1;
   }
 }
 
@@ -55,22 +57,18 @@ function getActiveCategory() {
 }
 
 /* --- 초기화 모달 제어 함수 --- */
-// 1. 초기화 버튼 클릭 시 (모달 열기)
 function resetEmotions() {
   if (selectedEmotions.size === 0) {
     showToast('초기화할 감정이 없습니다');
     return;
   }
-  // 브라우저 confirm 대신 커스텀 모달 열기
   document.getElementById('confirmResetModal').classList.add('active');
 }
 
-// 2. 초기화 모달 닫기 (취소 버튼)
 function closeResetModal() {
   document.getElementById('confirmResetModal').classList.remove('active');
 }
 
-// 3. 모달에서 [초기화] 최종 승인 시 실행
 function executeReset() {
   closeResetModal();
   
@@ -87,6 +85,7 @@ function executeReset() {
   showToast('🔄 모든 감정이 초기화되었습니다');
 }
 
+/* --- 덱 렌더링 --- */
 function renderDeck() {
   cardDeck.innerHTML = '';
   if (filteredData.length === 0) {
@@ -94,20 +93,21 @@ function renderDeck() {
     return;
   }
 
-  for (let i = currentIndex; i < Math.min(currentIndex + 3, filteredData.length); i++) {
-    const item = filteredData[i];
-    const cardIndex = i - currentIndex;
+  const displayCount = Math.min(3, filteredData.length);
+
+  for (let i = 0; i < displayCount; i++) {
+    const dataIndex = (currentIndex + i) % filteredData.length;
+    const item = filteredData[dataIndex];
     
     const card = document.createElement('div');
-    card.className = 'card'; // extra-card 클래스 구분을 지워 일반 카드 스타일로 통일
+    card.className = 'card';
     
-    const scale = 1 - cardIndex * 0.05;
-    const translateY = cardIndex * 15;
+    const scale = 1 - i * 0.05;
+    const translateY = i * 15;
     card.style.transform = `translateY(${translateY}px) scale(${scale})`;
-    card.style.zIndex = 10 - cardIndex;
-    card.style.opacity = 1 - cardIndex * 0.2;
+    card.style.zIndex = 10 - i;
+    card.style.opacity = 1 - i * 0.2;
 
-    // 💡 [추가] 뱃지 노출 코드를 제거하고 일반 카드와 동일한 구조만 남김
     card.innerHTML = `
       <div class="card-top-row">
         <span class="card-id ${showNumber ? '' : 'hidden'}">NO. ${item.id}</span>
@@ -118,22 +118,24 @@ function renderDeck() {
       <div class="card-hint">↓ 아래로 당겨 담기</div>
     `;
 
-    if (cardIndex === 0) attachTouchEvents(card, item);
+    // 맨 위 카드에만 스와이프/드래그 이벤트 부착
+    if (i === 0) attachTouchEvents(card, item);
     cardDeck.appendChild(card);
   }
 }
 
+/* --- 터치/마우스 이벤트 매핑 (단 1개로 통합 정리) --- */
 function attachTouchEvents(card, emotionItem) {
   let startX = 0, startY = 0, currentX = 0, currentY = 0, isDragging = false;
 
   const onStart = (e) => {
+    if (isAnimating) return;
     isDragging = true;
     const touch = e.touches ? e.touches[0] : e;
     startX = touch.clientX; 
     startY = touch.clientY;
-    card.style.transition = 'none'; // 드래그할 때 민첩하게 따라오도록
+    card.style.transition = 'none';
 
-    // PC 마우스 드래그 지원을 위한 이벤트 바인딩
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onEnd);
   };
@@ -144,7 +146,6 @@ function attachTouchEvents(card, emotionItem) {
     currentX = touch.clientX - startX; 
     currentY = touch.clientY - startY;
 
-    // 이동량에 맞춰 회전각 부여
     const rotateDeg = currentX * 0.08;
     card.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotateDeg}deg)`;
   };
@@ -153,58 +154,104 @@ function attachTouchEvents(card, emotionItem) {
     if (!isDragging) return;
     isDragging = false;
 
-    // 💡 window 마우스 이벤트 즉시 제거 (이것이 안 되어 카드가 걸치고 다음 카드가 먹통이 됨!)
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onEnd);
 
-    card.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
-
-    // 1. [아래로 당기기] -> 감정 담기 (확실하게 화면 아래로 날림)
-    if (currentY > 90) {
-      card.style.transform = 'translateY(500px)';
-      card.style.opacity = '0';
-      setTimeout(() => { addEmotion(emotionItem); }, 200);
+    // 1. [아래로 당기기] -> 감정 담기
+    if (currentY > 80) {
+      animateAndAdd(card, emotionItem);
     } 
-    // 2. [왼쪽으로 넘기기] -> 다음 카드 (확실하게 화면 좌측 밖으로 날림)
-    else if (currentX < -70) {
-      card.style.transform = 'translateX(-500px) rotate(-30deg)';
-      card.style.opacity = '0';
-      setTimeout(() => nextCard(), 200);
+    // 2. [왼쪽으로 스와이프] -> 다음 카드 (카드는 왼쪽으로 슈욱)
+    else if (currentX < -60) {
+      animateAndNext(card);
     } 
-    // 3. [오른쪽으로 넘기기] -> 이전 카드 (확실하게 화면 우측 밖으로 날림)
-    else if (currentX > 70) {
-      card.style.transform = 'translateX(500px) rotate(30deg)';
-      card.style.opacity = '0';
-      setTimeout(() => prevCard(), 200);
+    // 3. [오른쪽으로 스와이프] -> 이전 카드 (카드는 오른쪽으로 슈욱)
+    else if (currentX > 60) {
+      animateAndPrev(card);
     } 
-    // 4. 드래그 거리가 짧으면 원래 자리로 제자리 복귀
+    // 4. 복귀
     else {
+      card.style.transition = 'transform 0.2s ease-out';
       card.style.transform = 'translate(0, 0) rotate(0deg)';
     }
   };
 
-  // 모바일 터치 이벤트
   card.addEventListener('touchstart', onStart, { passive: true });
   card.addEventListener('touchmove', onMove, { passive: true });
   card.addEventListener('touchend', onEnd);
-
-  // PC 마우스 이벤트
   card.addEventListener('mousedown', onStart);
 }
 
+/* --- 애니메이션 및 카드 전환 로직 --- */
+
+// 다음 카드 (오른쪽 버튼 클릭 or 왼쪽 스와이프)
+function animateAndNext(targetCard = null) {
+  if (isAnimating || filteredData.length === 0) return;
+  isAnimating = true;
+
+  const topCard = targetCard || cardDeck.querySelector('.card');
+  if (topCard) {
+    topCard.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+    topCard.style.transform = 'translateX(-500px) rotate(-20deg)';
+    topCard.style.opacity = '0';
+  }
+
+  setTimeout(() => {
+    currentIndex = (currentIndex + 1) % filteredData.length;
+    renderDeck();
+    isAnimating = false;
+  }, 180);
+}
+
+// 이전 카드 (왼쪽 버튼 클릭 or 오른쪽 스와이프)
+function animateAndPrev(targetCard = null) {
+  if (isAnimating || filteredData.length === 0) return;
+  isAnimating = true;
+
+  const topCard = targetCard || cardDeck.querySelector('.card');
+  if (topCard) {
+    topCard.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+    topCard.style.transform = 'translateX(500px) rotate(20deg)';
+    topCard.style.opacity = '0';
+  }
+
+  setTimeout(() => {
+    currentIndex = (currentIndex - 1 + filteredData.length) % filteredData.length;
+    renderDeck();
+    isAnimating = false;
+  }, 180);
+}
+
+// 아래로 당겨 담기
+function animateAndAdd(targetCard, item) {
+  if (isAnimating) return;
+  isAnimating = true;
+
+  if (targetCard) {
+    targetCard.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+    targetCard.style.transform = 'translateY(500px)';
+    targetCard.style.opacity = '0';
+  }
+
+  setTimeout(() => {
+    addEmotion(item);
+    isAnimating = false;
+  }, 180);
+}
+
+/* --- 하단 버튼 연결 --- */
 function nextCard() {
-  if (filteredData.length === 0) return;
-  currentIndex = (currentIndex < filteredData.length - 1) ? currentIndex + 1 : 0;
-  renderDeck();
+  animateAndNext();
 }
 
 function prevCard() {
-  if (currentIndex > 0) { currentIndex--; renderDeck(); }
+  animateAndPrev();
 }
 
 function selectCurrentCard() {
   if (filteredData.length === 0) return;
-  addEmotion(filteredData[currentIndex]);
+  const topCard = cardDeck.querySelector('.card');
+  animateAndAdd(topCard, filteredData[currentIndex]);
 }
 
 function addEmotion(item) {
@@ -213,7 +260,6 @@ function addEmotion(item) {
     saveToStorage();
     updateSelectedUI();
     
-    // 💡 선택했으므로 덱 데이터에서 제거하고 다시 렌더링
     updateFilteredData();
     renderDeck();
   }
@@ -224,7 +270,6 @@ function removeEmotion(name) {
   saveToStorage();
   updateSelectedUI();
   
-  // 💡 선택 해제했으므로 덱에 다시 추가
   updateFilteredData();
   renderDeck();
 
@@ -334,7 +379,6 @@ function copySelectedEmotions() {
   navigator.clipboard.writeText(list.join(', ')).then(() => showToast('📋 클립보드에 복사되었습니다!'));
 }
 
-/* 💡 Win11 및 PC 환경을 위한 직관적 복사 공유 처리 */
 function shareOnlyEmotions() {
   if (selectedEmotions.size === 0) return;
   const list = [];

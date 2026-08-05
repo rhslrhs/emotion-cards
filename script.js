@@ -86,7 +86,7 @@ function renderDeck() {
     const cardIndex = i - currentIndex;
     
     const card = document.createElement('div');
-    card.className = `card ${item.isExtra ? 'extra-card' : ''}`;
+    card.className = 'card'; // extra-card 클래스 구분을 지워 일반 카드 스타일로 통일
     
     const scale = 1 - cardIndex * 0.05;
     const translateY = cardIndex * 15;
@@ -94,10 +94,11 @@ function renderDeck() {
     card.style.zIndex = 10 - cardIndex;
     card.style.opacity = 1 - cardIndex * 0.2;
 
+    // 💡 [추가] 뱃지 노출 코드를 제거하고 일반 카드와 동일한 구조만 남김
     card.innerHTML = `
       <div class="card-top-row">
         <span class="card-id ${showNumber ? '' : 'hidden'}">NO. ${item.id}</span>
-        ${item.isExtra ? '<span class="extra-badge">추가</span>' : '<span></span>'}
+        <span></span>
       </div>
       <div class="card-emoji">${item.emoji}</div>
       <div class="card-title">${item.name}</div>

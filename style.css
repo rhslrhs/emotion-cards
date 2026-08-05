@@ -134,8 +134,8 @@ main {
 }
 
 .card.extra-card {
-  border: 2px dashed #fd79a8;
-  background: #fff8fa;
+  border: 2px solid transparent;
+  background-color: var(--card-bg);
 }
 
 .card-top-row {
@@ -262,7 +262,10 @@ main {
   font-size: 0.8rem; font-weight: 600; white-space: nowrap;
 }
 
-.selected-chip.is-extra { border-color: #fd79a8; background: #fff0f5; }
+.selected-chip.is-extra {
+  border-color: var(--border-color);
+  background: #f1f2f6;
+}
 
 .remove-btn {
   background: none; border: none; color: #a4b0be;

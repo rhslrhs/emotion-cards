@@ -78,13 +78,13 @@ function executeReset() {
   saveToStorage();
   updateSelectedUI();
   updateFilteredData(); // 덱 목록 복원
-  renderDeck();
+  shuffleCards();        // 💡 초기화 후 카드 덱 자동 셔플!
   
   if (document.getElementById('modalOverlay').classList.contains('active')) {
     renderModalList();
   }
   
-  showToast('🔄 모든 감정이 초기화되었습니다');
+  showToast('🔄 모든 감정이 초기화되고 카드가 섞였습니다');
 }
 
 function renderDeck() {

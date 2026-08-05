@@ -111,7 +111,7 @@ function renderDeck() {
     card.style.zIndex = 10 - i;
     card.style.opacity = 1 - i * 0.2;
 
-    // 💡 번호는 항상 표시 (NO. XX)
+    // 번호 표시 (NO. XX)
     card.innerHTML = `
       <div class="card-top-row">
         <span class="card-id">NO. ${item.id}</span>
@@ -141,6 +141,8 @@ function attachTouchEvents(card, emotionItem) {
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
   };
 
   const onMove = (e) => {
@@ -149,6 +151,7 @@ function attachTouchEvents(card, emotionItem) {
     currentY = touch.clientY - startY;
 
     if (currentY > 0) {
+      if (e.cancelable) e.preventDefault(); // 스크롤 동작 방지
       card.style.transform = `translateY(${currentY}px)`;
     }
   };
@@ -159,6 +162,8 @@ function attachTouchEvents(card, emotionItem) {
 
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onEnd);
+    window.removeEventListener('touchmove', onMove);
+    window.removeEventListener('touchend', onEnd);
 
     if (currentY > 80) {
       animateAndAdd(card, emotionItem);
@@ -169,8 +174,6 @@ function attachTouchEvents(card, emotionItem) {
   };
 
   card.addEventListener('touchstart', onStart, { passive: true });
-  card.addEventListener('touchmove', onMove, { passive: true });
-  card.addEventListener('touchend', onEnd);
   card.addEventListener('mousedown', onStart);
 }
 
@@ -270,17 +273,12 @@ function updateSelectedUI() {
   selectedContainer.scrollLeft = selectedContainer.scrollWidth;
 }
 
-// 🔀 셔플 함수 (셔플 시 번호 재부여 + 한 바퀴 카운트 초기화)
+// 🔀 셔플 함수
 function shuffleCards() {
   for (let i = filteredData.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [filteredData[i], filteredData[j]] = [filteredData[j], filteredData[i]];
   }
-  
-  // 💡 섞인 순서대로 번호(id) 다시 1번부터 매기기
-  filteredData.forEach((item, idx) => {
-    item.id = String(idx + 1).padStart(2, '0');
-  });
 
   currentIndex = 0;
   viewedCount = 0;           // 한 바퀴 카운트 리셋
@@ -353,7 +351,14 @@ function copySelectedEmotions() {
   if (selectedEmotions.size === 0) return;
   const list = [];
   selectedEmotions.forEach((item, name) => list.push(`${item.emoji} ${name}`));
-  navigator.clipboard.writeText(list.join(', ')).then(() => showToast('📋 클립보드에 복사되었습니다!'));
+  
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(list.join(', '))
+      .then(() => showToast('📋 클립보드에 복사되었습니다!'))
+      .catch(() => showToast('❌ 복사에 실패했습니다.'));
+  } else {
+    showToast('❌ 이 브라우저에서는 복사를 지원하지 않습니다.');
+  }
 }
 
 function shareOnlyEmotions() {
@@ -362,9 +367,13 @@ function shareOnlyEmotions() {
   selectedEmotions.forEach((item, name) => list.push(`${item.emoji} ${name}`));
   const shareText = `[오늘 나의 마음]\n${list.join(', ')}`;
 
-  navigator.clipboard.writeText(shareText)
-    .then(() => showToast('📋 감정이 클립보드에 복사되었습니다!'))
-    .catch(() => showToast('❌ 복사에 실패했습니다.'));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareText)
+      .then(() => showToast('📋 감정이 클립보드에 복사되었습니다!'))
+      .catch(() => showToast('❌ 복사에 실패했습니다.'));
+  } else {
+    showToast('❌ 이 브라우저에서는 복사를 지원하지 않습니다.');
+  }
 }
 
 function shareEmotionsWithNotes() {
@@ -376,9 +385,13 @@ function shareEmotionsWithNotes() {
   });
   const shareText = `[오늘 나의 마음 기록 💡]\n\n${list.join('\n')}`;
 
-  navigator.clipboard.writeText(shareText)
-    .then(() => showToast('📋 내용이 클립보드에 복사되었습니다!'))
-    .catch(() => showToast('❌ 복사에 실패했습니다.'));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareText)
+      .then(() => showToast('📋 내용이 클립보드에 복사되었습니다!'))
+      .catch(() => showToast('❌ 복사에 실패했습니다.'));
+  } else {
+    showToast('❌ 이 브라우저에서는 복사를 지원하지 않습니다.');
+  }
 }
 
 // 앱 초기 실행

@@ -306,7 +306,7 @@ main {
 }
 .modal-close-x:active { background: #e2e8f0; }
 
-.modal-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 4px; padding-right: 20px; }
+.modal-title { font-size: 1.1rem; font-weight: 800; }
 .modal-desc { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px; }
 
 .modal-list {

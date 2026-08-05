@@ -93,5 +93,24 @@
 
   <script src="emotionsData.js"></script>
   <script src="script.js"></script>
+
+  <!-- 초기화 확인 커스텀 모달 -->
+  <div class="modal-overlay" id="confirmResetModal">
+    <div class="modal-content" style="max-width: 300px;">
+      <div class="modal-title">감정 초기화 🔄</div>
+      <div class="modal-desc" style="margin-bottom: 20px;">
+        담았던 감정이 모두 지워집니다.<br>정말 초기화하시겠어요?
+      </div>
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button class="icon-btn" style="flex: 1; padding: 10px; justify-content: center;" onclick="closeResetModal()">
+          취소
+        </button>
+        <button class="icon-btn" style="flex: 1; padding: 10px; justify-content: center; background: #ff7675; color: white; border: none;" onclick="executeReset()">
+          초기화
+        </button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

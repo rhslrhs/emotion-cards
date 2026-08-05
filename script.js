@@ -54,24 +54,37 @@ function getActiveCategory() {
   return 'all';
 }
 
-/* --- 감정 초기화 --- */
+/* --- 초기화 모달 제어 함수 --- */
+// 1. 초기화 버튼 클릭 시 (모달 열기)
 function resetEmotions() {
   if (selectedEmotions.size === 0) {
     showToast('초기화할 감정이 없습니다');
     return;
   }
+  // 브라우저 confirm 대신 커스텀 모달 열기
+  document.getElementById('confirmResetModal').classList.add('active');
+}
+
+// 2. 초기화 모달 닫기 (취소 버튼)
+function closeResetModal() {
+  document.getElementById('confirmResetModal').classList.remove('active');
+}
+
+// 3. 모달에서 [초기화] 최종 승인 시 실행
+function executeReset() {
+  closeResetModal(); // 모달 닫기
   
-  if (confirm('초기화하시겠어요?')) {
-    selectedEmotions.clear();
-    saveToStorage();
-    updateSelectedUI();
-    updateFilteredData(); // 덱 목록 복원
-    renderDeck();
-    if (document.getElementById('modalOverlay').classList.contains('active')) {
-      renderModalList();
-    }
-    showToast('🔄 모든 감정이 초기화되었습니다');
+  selectedEmotions.clear();
+  saveToStorage();
+  updateSelectedUI();
+  updateFilteredData(); // 덱 목록 복원
+  renderDeck();
+  
+  if (document.getElementById('modalOverlay').classList.contains('active')) {
+    renderModalList();
   }
+  
+  showToast('🔄 모든 감정이 초기화되었습니다');
 }
 
 function renderDeck() {

@@ -129,8 +129,13 @@ function attachTouchEvents(card, emotionItem) {
   const onStart = (e) => {
     isDragging = true;
     const touch = e.touches ? e.touches[0] : e;
-    startX = touch.clientX; startY = touch.clientY;
-    card.style.transition = 'none'; // 드래그 중에는 실시간 따라오도록 애니메이션 끄기
+    startX = touch.clientX; 
+    startY = touch.clientY;
+    card.style.transition = 'none'; // 드래그할 때 민첩하게 따라오도록
+
+    // PC 마우스 드래그 지원을 위한 이벤트 바인딩
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
   };
 
   const onMove = (e) => {
@@ -139,46 +144,52 @@ function attachTouchEvents(card, emotionItem) {
     currentX = touch.clientX - startX; 
     currentY = touch.clientY - startY;
 
-    // 💡 좌우 이동량에 따라 카드가 자연스럽게 기울어지도록 회전각 계산 (회전 느낌 강화)
-    const rotateDeg = currentX * 0.1;
+    // 이동량에 맞춰 회전각 부여
+    const rotateDeg = currentX * 0.08;
     card.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotateDeg}deg)`;
   };
 
   const onEnd = () => {
     if (!isDragging) return;
     isDragging = false;
-    card.style.transition = 'transform 0.3s ease, opacity 0.3s ease'; // 손을 뗐을 때 부드럽게 날아가도록
 
-    // 1. [아래로 당기기] -> 감정 담기
-    if (currentY > 100) {
-      card.style.transform = 'translateY(400px)';
+    // 💡 window 마우스 이벤트 즉시 제거 (이것이 안 되어 카드가 걸치고 다음 카드가 먹통이 됨!)
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onEnd);
+
+    card.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+
+    // 1. [아래로 당기기] -> 감정 담기 (확실하게 화면 아래로 날림)
+    if (currentY > 90) {
+      card.style.transform = 'translateY(500px)';
       card.style.opacity = '0';
       setTimeout(() => { addEmotion(emotionItem); }, 200);
     } 
-    // 2. [왼쪽으로 쓱 넘기기] -> 다음 카드로 스와이프
-    else if (currentX < -80) {
-      card.style.transform = 'translateX(-400px) rotate(-30deg)';
+    // 2. [왼쪽으로 넘기기] -> 다음 카드 (확실하게 화면 좌측 밖으로 날림)
+    else if (currentX < -70) {
+      card.style.transform = 'translateX(-500px) rotate(-30deg)';
       card.style.opacity = '0';
       setTimeout(() => nextCard(), 200);
     } 
-    // 3. [오른쪽으로 쓱 넘기기] -> 이전 카드로 스와이프
-    else if (currentX > 80) {
-      card.style.transform = 'translateX(400px) rotate(30deg)';
+    // 3. [오른쪽으로 넘기기] -> 이전 카드 (확실하게 화면 우측 밖으로 날림)
+    else if (currentX > 70) {
+      card.style.transform = 'translateX(500px) rotate(30deg)';
       card.style.opacity = '0';
       setTimeout(() => prevCard(), 200);
     } 
-    // 4. 기준치 미달 시 -> 원래 위치로 제자리 복귀
+    // 4. 드래그 거리가 짧으면 원래 자리로 제자리 복귀
     else {
       card.style.transform = 'translate(0, 0) rotate(0deg)';
     }
   };
 
+  // 모바일 터치 이벤트
   card.addEventListener('touchstart', onStart, { passive: true });
   card.addEventListener('touchmove', onMove, { passive: true });
   card.addEventListener('touchend', onEnd);
+
+  // PC 마우스 이벤트
   card.addEventListener('mousedown', onStart);
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('mouseup', onEnd);
 }
 
 function nextCard() {

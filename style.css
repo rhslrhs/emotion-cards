@@ -396,3 +396,14 @@ main {
 }
 
 .toast.show { opacity: 1; }
+
+/* 필터 컨테이너 가운데 정렬 */
+.filter-container, .filter-group {
+  display: flex;
+  justify-content: center; /* 💡 가운데 정렬 핵심 */
+  align-items: center;
+  flex-wrap: wrap;         /* 화면이 좁을 때 자연스럽게 줄바꿈 */
+  gap: 8px;
+  margin: 12px 0;
+  width: 100%;
+}

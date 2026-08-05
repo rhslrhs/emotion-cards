@@ -130,34 +130,46 @@ function attachTouchEvents(card, emotionItem) {
     isDragging = true;
     const touch = e.touches ? e.touches[0] : e;
     startX = touch.clientX; startY = touch.clientY;
-    card.style.transition = 'none';
+    card.style.transition = 'none'; // 드래그 중에는 실시간 따라오도록 애니메이션 끄기
   };
 
   const onMove = (e) => {
     if (!isDragging) return;
     const touch = e.touches ? e.touches[0] : e;
-    currentX = touch.clientX - startX; currentY = touch.clientY - startY;
-    card.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${currentX * 0.05}deg)`;
+    currentX = touch.clientX - startX; 
+    currentY = touch.clientY - startY;
+
+    // 💡 좌우 이동량에 따라 카드가 자연스럽게 기울어지도록 회전각 계산 (회전 느낌 강화)
+    const rotateDeg = currentX * 0.1;
+    card.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${rotateDeg}deg)`;
   };
 
   const onEnd = () => {
     if (!isDragging) return;
     isDragging = false;
-    card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+    card.style.transition = 'transform 0.3s ease, opacity 0.3s ease'; // 손을 뗐을 때 부드럽게 날아가도록
 
+    // 1. [아래로 당기기] -> 감정 담기
     if (currentY > 100) {
-      // 💡 아래로 당겨 담았을 때: 담은 후 덱에서 해당 카드 제거
-      card.style.transform = 'translateY(300px)';
+      card.style.transform = 'translateY(400px)';
       card.style.opacity = '0';
       setTimeout(() => { addEmotion(emotionItem); }, 200);
-    } else if (currentX < -100) {
-      card.style.transform = 'translateX(-300px)';
+    } 
+    // 2. [왼쪽으로 쓱 넘기기] -> 다음 카드로 스와이프
+    else if (currentX < -80) {
+      card.style.transform = 'translateX(-400px) rotate(-30deg)';
+      card.style.opacity = '0';
       setTimeout(() => nextCard(), 200);
-    } else if (currentX > 100) {
-      card.style.transform = 'translateX(300px)';
+    } 
+    // 3. [오른쪽으로 쓱 넘기기] -> 이전 카드로 스와이프
+    else if (currentX > 80) {
+      card.style.transform = 'translateX(400px) rotate(30deg)';
+      card.style.opacity = '0';
       setTimeout(() => prevCard(), 200);
-    } else {
-      card.style.transform = 'translate(0, 0)';
+    } 
+    // 4. 기준치 미달 시 -> 원래 위치로 제자리 복귀
+    else {
+      card.style.transform = 'translate(0, 0) rotate(0deg)';
     }
   };
 

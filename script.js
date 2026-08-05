@@ -72,13 +72,13 @@ function closeResetModal() {
 
 // 3. 모달에서 [초기화] 최종 승인 시 실행
 function executeReset() {
-  closeResetModal(); // 모달 닫기
+  closeResetModal();
   
   selectedEmotions.clear();
   saveToStorage();
   updateSelectedUI();
-  updateFilteredData(); // 덱 목록 복원
-  shuffleCards();        // 💡 초기화 후 카드 덱 자동 셔플!
+  updateFilteredData();
+  shuffleCards();
   
   if (document.getElementById('modalOverlay').classList.contains('active')) {
     renderModalList();
